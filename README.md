@@ -31,3 +31,5 @@ S     - DISPLAY DD STATUS REGISTER
 
 X     - EXIT TO CP/M
 ```
+
+To assemble the source code, you must use the `TDL Z80 CP/M DISK ASSEMBLER VERSION 2.21` which is available in this repository. The TDL assembler will not run on an 8080. It must be run on a Z80.
