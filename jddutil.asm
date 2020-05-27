@@ -4,7 +4,8 @@
 ; TDL ZASM ASSEMBLER ON A Z80 PROCESSOR
 ;
 ; VERSION  AUTHO	DATE		DESCRIPTION
-; 1.0i     P. LINSTRUTH	05/20/20	INITIAL VERSION
+; 1.0      P. LINSTRUTH	05/20/20	INITIAL VERSION
+; 1.1      P. LINSTRUTH	05/27/20	ADDED MEM DUMP
 ;
 
 ;******************************************************
@@ -48,11 +49,11 @@ CMD.LP:	LXI	H,M.CMD		;DISPLAY PROMPT
 	CALL	IO.GET		;COMMAND IN HL
 	MOV	A,M
 	INX	H		;POINT HL TO TOKEN PAST COMMAND CHARACTER
-	CPI	'B'		;SHOW BOOT BLOCKS
-	JZ	CMD.B
 	CPI	'C'		;DISPLAY COMMAND BLOCK
 	JZ	CMD.C
-	CPI	'D'		;DISPLAY STORAGE LOCATIONS
+	CPI	'B'		;DISPLAY STORAGE LOCATIONS
+	JZ	CMD.B
+	CPI	'D'		;DUMP MEMORY
 	JZ	CMD.D
 	CPI	'E'		;EXECUTE
 	JZ	CMD.E
@@ -64,6 +65,8 @@ CMD.LP:	LXI	H,M.CMD		;DISPLAY PROMPT
 	JZ	CMD.M
 	CPI	'S'		;DISPLAY STATUS PORT
 	JZ	CMD.S
+	CPI	'T'		;SHOW BOOT BLOCKS
+	JZ	CMD.T
 	CPI	'X'		;EXIT TO CP/M
 	CZ	..DONE
 	LXI	H,M.HELP	;INVALID COMMAND ENTERED, DISPLAY HELP
@@ -76,95 +79,9 @@ CMD.LP:	LXI	H,M.CMD		;DISPLAY PROMPT
 ..LOOP:	JMP	..LOOP		;NO, JUST LOOP
 
 ;******************************************************
-; DISPLAY BOOT TRACKS
-;******************************************************
-CMD.B:	MVI	C,0
-	CALL	SETTRK
-	MVI	C,1
-	CALL	SETSEC
-
-..LOOP: LDA	DCM.TRK
-	CALL	PR.BYT
-	LDA	DCM.SEC
-	CALL	PR.BYT
-	CALL	PR.NL
-
-	CALL	RESEC		;READ SECTOR
-	CALL	PR.SEC		;PRINT SECTOR
-
-	CALL	IO.ST		;PAUSE OUTPUT?
-	JZ	..NOPS
-
-	CALL	IO.IN		;GET PAUSE CHARACTER
-	CPI	03H		;CTRL-C
-	RZ			;RETURN
-	CALL	IO.IN		;WAIT FOR RESTART CHARACTER
-	
-..NOPS:	LDA	SPT		;SECTOR PER TRACK
-	MOV	B,A
-	LDA	DCM.SEC
-	CMP	B
-	JZ	..NXT		;NEXT TRACK
-
-	INR	A
-	STA	DCM.SEC
-	JMP	..LOOP
-
-..NXT:	LDA	DCM.TRK
-	INR	A
-	CPI	2		;RETURN IF TRACK 2
-	RZ
-
-	MOV	C,A
-	CALL	SETTRK
-	MVI	C,1
-	CALL	SETSEC
-	JMP	..LOOP
-
-;******************************************************
-; DISPLAY DCM COMMAND BLOCK
-;******************************************************
-CMD.C:	CALL	GET.CB		;GET COMMAND BLOCK
-
-	LXI	H,M.CB
-	CALL	IO.MSG
-
-	LXI	H,M.CB0
-	CALL	IO.MSG
-	LDA	DCM.CMD
-	CALL	PR.BYT
-	CALL	PR.NL
-
-	LXI	H,M.CB1
-	CALL	IO.MSG
-	LDA	DCM.DRV
-	CALL	PR.BYT
-	CALL	PR.NL
-
-	LXI	H,M.CB2
-	CALL	IO.MSG
-	LDA	DCM.TRK
-	CALL	PR.BYT
-	CALL	PR.NL
-
-	LXI	H,M.CB3
-	CALL	IO.MSG
-	LDA	DCM.SEC
-	CALL	PR.BYT
-	CALL	PR.NL
-
-	LXI	H,M.CB4
-	CALL	IO.MSG
-	LDA	DCM.STS
-	CALL	PR.BYT
-	CALL	PR.NL
-
-	RET
-
-;******************************************************
 ; DISPLAY DCM BUFFERS
 ;******************************************************
-CMD.D:	MVI	A,DC.MB0	;REQUEST BANK 0
+CMD.B:	MVI	A,DC.MB0	;REQUEST BANK 0
 	OUT	D.PORT
 
 	LHLD	D.ADDR		;DD SYS ADDRESS.
@@ -222,6 +139,59 @@ CMD.D:	MVI	A,DC.MB0	;REQUEST BANK 0
 
 	RET
 
+
+;******************************************************
+; DISPLAY DCM COMMAND BLOCK
+;******************************************************
+CMD.C:	CALL	GET.CB		;GET COMMAND BLOCK
+
+	LXI	H,M.CB
+	CALL	IO.MSG
+
+	LXI	H,M.CB0
+	CALL	IO.MSG
+	LDA	DCM.CMD
+	CALL	PR.BYT
+	CALL	PR.NL
+
+	LXI	H,M.CB1
+	CALL	IO.MSG
+	LDA	DCM.DRV
+	CALL	PR.BYT
+	CALL	PR.NL
+
+	LXI	H,M.CB2
+	CALL	IO.MSG
+	LDA	DCM.TRK
+	CALL	PR.BYT
+	CALL	PR.NL
+
+	LXI	H,M.CB3
+	CALL	IO.MSG
+	LDA	DCM.SEC
+	CALL	PR.BYT
+	CALL	PR.NL
+
+	LXI	H,M.CB4
+	CALL	IO.MSG
+	LDA	DCM.STS
+	CALL	PR.BYT
+	CALL	PR.NL
+
+	RET
+
+;******************************************************
+; DUMP MEMORY
+;******************************************************
+CMD.D:	MOV	A,M		;NEXT CHARACTER
+	ORA	A
+	JZ	..NADR
+
+	CALL	G.ADR
+	SHLD	D.ADR		;SAVE IN D.ADR
+
+..NADR: CALL	PR.BUF
+	RET
 
 ;******************************************************
 ; EXECUTE DCM COMMAND
@@ -315,6 +285,52 @@ CMD.S:	LXI	H,M.PORT
 	CALL	PR.NL
 
 	RET
+
+;******************************************************
+; DISPLAY BOOT TRACKS
+;******************************************************
+CMD.T:	MVI	C,0
+	CALL	SETTRK
+	MVI	C,1
+	CALL	SETSEC
+
+..LOOP: LDA	DCM.TRK
+	CALL	PR.BYT
+	LDA	DCM.SEC
+	CALL	PR.BYT
+	CALL	PR.NL
+
+	CALL	RESEC		;READ SECTOR
+	CALL	PR.SEC		;PRINT SECTOR
+
+	CALL	IO.ST		;PAUSE OUTPUT?
+	JZ	..NOPS
+
+	CALL	IO.IN		;GET PAUSE CHARACTER
+	CPI	03H		;CTRL-C
+	RZ			;RETURN
+	CALL	IO.IN		;WAIT FOR RESTART CHARACTER
+	
+..NOPS:	LDA	SPT		;SECTOR PER TRACK
+	MOV	B,A
+	LDA	DCM.SEC
+	CMP	B
+	JZ	..NXT		;NEXT TRACK
+
+	INR	A
+	STA	DCM.SEC
+	JMP	..LOOP
+
+..NXT:	LDA	DCM.TRK
+	INR	A
+	CPI	2		;RETURN IF TRACK 2
+	RZ
+
+	MOV	C,A
+	CALL	SETTRK
+	MVI	C,1
+	CALL	SETSEC
+	JMP	..LOOP
 
 
 	.PAGE
@@ -900,11 +916,26 @@ PR.SEC:	MVI	A,DC.MB0	;RESELECT DD BANK 0.
 	LHLD	D.ADDR		;HL TO SECTOR BUFFER
 	LXI	D,DD.BUF
 	DAD	D
-	XRA     A
+	SHLD	D.ADR
+	CALL	PR.BUF
+	RET
+
+;------------------------------------------------------------------------------
+; PR.BUF - DISPLAY 128 BYTES OF BUFFER POINTED BY D.ADR
+;------------------------------------------------------------------------------
+PR.BUF: LHLD	D.ADR
+	XRA	A
 
 ..NEXT:	STA	..CNT
 	PUSH    H
-	MOV     A,M
+	ANI	0FH
+	JNZ	..NADR
+
+	CALL	PR.WRD
+	MVI	A,':'
+	CALL	IO.OUT
+
+..NADR:	MOV     A,M
 	MOV	C,A		;SAVE BYTE IN C
 	STA	..VAL
 	CALL    PR.BYT
@@ -936,12 +967,13 @@ PR.SEC:	MVI	A,DC.MB0	;RESELECT DD BANK 0.
 	CALL	IO.MSG
 
 ..NONL:	POP     H
+	INX     H
+	SHLD	D.ADR
 	LDA     ..CNT
 	INR     A
-	CPI     DD.BFL		;LAST BYTE, RETURN
+	CPI     128		;LAST BYTE, RETURN
 	RZ
 
-	INX     H
 	JMP     ..NEXT
 
 ..CNT:	.BYTE	0
@@ -964,6 +996,52 @@ G.TKN:
 
 	RET			;RETURN TOKEN IN A
 	
+;------------------------------------------------------------------------------
+; G.ADR - GET ADDRESS FROM CONSOLE INPUT BUFFER IN HL. RETURNS IN HL.
+;------------------------------------------------------------------------------
+G.ADR:	XCHG			;HL TO DE
+	LXI	H,0		;ZERO HL
+
+..LOOP: LDAX	D		;GET DIGIT
+	ORA	A
+	RZ			;RETURN IF NULL
+
+	INX	D		;QUEUE NEXT CHARACTER
+
+	CPI	' '		;SKIP SPACES
+	JZ	..LOOP
+
+	CPI	'A'		;CONVERT LETTERS TO UPPERCASE
+	JC	..FHN
+	ANI	('a'-'A') ^ 0FFH
+
+..FHN:	DAD	H		;MAKE ROOM FOR NEW DIGIT
+	DAD	H
+	DAD	H
+	DAD	H
+
+	CALL	H.CON		;DO THE CONVERSION
+	RNC			;ERROR
+
+	ADD	L
+	MOV	L,A		;MOVE NEW DIGIT IN
+
+	JMP	..LOOP
+
+;------------------------------------------------------------------------------
+; H.CON - CONVERT ASCII HEX DIGIT IN A TO BINARY. RETURNS IN A.
+;------------------------------------------------------------------------------
+H.CON:	SUI	'0'		;REMOVE ASCII BIAS
+	CPI	10
+	RC			;IF 0-9 THEN WE'RE DONE
+
+	SUI	9+('A'-'9')	;SHOULD BE 0-5 NOW
+	CPI	6		;GAP CHR OR TOO HIGH?
+	RNC			;ERROR IF SO
+
+	SUI	0F6H		;ADD 0AH, SET CARRY
+	RET
+	
 ;******************************************************
 ; MESSAGES                                            *
 ;******************************************************
@@ -974,20 +1052,22 @@ CR	==	0DH
 LF	==	0AH
 
 SPT:	.WORD	0
+D.ADR:	.WORD	0
 
 M.CRLF:	.ASCIZ	[CR][LF]
-M.VER:	.ASCIZ	'JADE "DOUBLE D" UTILITY, VER 1.0'[CR][LF]
+M.VER:	.ASCIZ	'JADE "DOUBLE D" UTILITY, VER 1.1'[CR][LF]
 M.AUTH:	.ASCIZ	'DELTEC ENTERPRISES LLC 2020'[CR][LF]
 
 M.HELP:	.ASCII	[CR][LF]
-	.ASCII	'B     - SHOW BOOT TRACKS'[CR][LF]
-	.ASCII	'C     - SHOW COMMAND BUFFER'[CR][LF]
-	.ASCII	'D     - SHOW DCM BUFFERS'[CR][LF]
+	.ASCII	'B     - DISPLAY DCM BUFFERS'[CR][LF]
+	.ASCII	'C     - DISPLAY COMMAND BUFFER'[CR][LF]
+	.ASCII	'D     - DUMP MEMORY'[CR][LF]
 	.ASCII	'E n   - EXECUTE DCM COMMAND n'[CR][LF]
 	.ASCII	'F     - FORMAT SSSD FLOPPY'[CR][LF]
 	.ASCII	'I     - INITIALIZE DOUBLE D'[CR][LF]
 	.ASCII	'M n   - REQUEST MEMORY BANK n'[CR][LF]
 	.ASCII	'S     - DISPLAY DD STATUS REGISTER'[CR][LF]
+	.ASCII	'T     - DISPLAY BOOT TRACKS'[CR][LF]
 	.ASCII	[CR][LF]
 	.ASCIZ	'X     - EXIT TO CP/M'[CR][LF]
 
