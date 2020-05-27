@@ -15,21 +15,24 @@ The JADE Double D ("DD") Disk Controller for the S-100 is unique in that it has 
 `JDDUTIL` can be run under CP/M or stand-alone by loading a HEX file through a monitor.
 
 ```
-JADE "DOUBLE D" UTILITY, VER 1.0
+JADE "DOUBLE D" UTILITY, VER 1.1
 DELTEC ENTERPRISES LLC 2020
 
 CMD>?
 
-B     - SHOW BOOT TRACKS
-C     - SHOW COMMAND BUFFER
-D     - SHOW DCM BUFFERS
+B     - DISPLAY DCM BUFFERS
+C     - DISPLAY COMMAND BUFFER
+D     - DUMP MEMORY
 E n   - EXECUTE DCM COMMAND n
 F     - FORMAT SSSD FLOPPY
 I     - INITIALIZE DOUBLE D
 M n   - REQUEST MEMORY BANK n
 S     - DISPLAY DD STATUS REGISTER
+T     - DISPLAY BOOT TRACKS
 
 X     - EXIT TO CP/M
+
+CMD>
 ```
 
 To assemble the source code, you must use the `TDL Z80 CP/M DISK ASSEMBLER VERSION 2.21` which is available in this repository. The TDL assembler will not run on an 8080. It must be run on a Z80.
